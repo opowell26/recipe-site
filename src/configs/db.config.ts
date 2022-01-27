@@ -1,12 +1,13 @@
 import { connect, connection } from 'mongoose'
 
-const env = process.env
 const MONGODB_URL = process.env.MONGODB_URL
 
 try {
-  connect(MONGODB_URL, { useNewUrlParser: true, useUnifiedTopology: true })
+  connect(MONGODB_URL)
 } catch (error) {
   console.error(error)
+} finally {
+  console.log('connected to MongoDB Atlas')
 }
 
 connection.on('error', (err) => {
