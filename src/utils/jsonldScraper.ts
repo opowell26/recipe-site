@@ -1,5 +1,6 @@
-import 'jsonld'
 import { load } from 'cheerio'
+import fetch from 'node-fetch'
+import { json } from 'stream/consumers'
 
 interface Recipe {
   name: string
@@ -83,13 +84,19 @@ export const getJsonLDfromURL = async (url: string) => {
     jsonld = $("script[type='application/ld+json']")
     if (jsonld.length > 1) {
       // find the one with recipe
+      jsonld.each((_, elm) => {
+        const html = $(elm).html()
+        if (html.includes('"@type":"Recipe"')) {
+          jsonld = JSON.parse(html)
+          return false
+        }
+      })
     } else {
-      jsonld = jsonld[0].children[0]['data']
+      jsonld = JSON.parse(jsonld.html())
     }
   } catch (error) {
-    throw 'No ld+json on this page'
+    throw `No ld+json on this page ${url}`
   }
-  const parsedJSONld = JSON.parse(jsonld)
-  const recipe = Recipe.fromJSON(parsedJSONld)
+  const recipe = Recipe.fromJSON(jsonld)
   console.log(recipe)
 }
