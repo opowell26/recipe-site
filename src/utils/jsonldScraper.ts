@@ -1,23 +1,60 @@
-import { load } from 'cheerio'
+import { Cheerio, Element, load } from 'cheerio'
 import fetch from 'node-fetch'
-import { json } from 'stream/consumers'
+import { performance } from 'perf_hooks'
+import { HowToSection, INutrition, IRecipe } from '../models/recipe'
+import { decodeHTML } from 'entities'
 
-interface Recipe {
+type JSONldInstructions = {
+  name?: string
+  text?: string
+  itemListElement: [{ text: string }]
+}
+
+type JSONldNutrition = {
+  calories: string
+  carbohydrateContent: string
+  cholesterolContent: string
+  fatContent: string
+  fiberContent: string
+  proteinContent: string
+  saturatedFatContent: string
+  servingSize: string
+  sodiumContent: string
+  sugarContent: string
+  transFatContent: string
+  unsaturatedFatContent: string
+}
+
+class Recipe implements IRecipe {
   name: string
   description?: string
+  ingredients: [string]
+  instructions: (HowToSection | string)[]
+  nutrition?: unknown
+  url?: string
   image?: string
   video?: string
-  ingredients: [string]
-  instructions: [string]
-  nutrition?: unknown
-  recipeYield?: [string]
+  recipeYield?: string
   prepTime?: string
   cookTime?: string
   totalTime?: string
-}
+  notes?: string
 
-class Recipe {
-  constructor({ name, description, image, ingredients, instructions, nutrition, recipeYield }: Recipe) {
+  constructor({
+    name,
+    description,
+    image,
+    ingredients,
+    instructions,
+    nutrition,
+    recipeYield,
+    url,
+    video,
+    prepTime,
+    cookTime,
+    totalTime,
+    notes,
+  }: Recipe) {
     this.name = name
     this.description = description
     this.image = image
@@ -25,34 +62,82 @@ class Recipe {
     this.instructions = instructions
     this.nutrition = nutrition
     this.recipeYield = recipeYield
+    this.url = url
+    this.video = video
+    this.prepTime = prepTime
+    this.cookTime = cookTime
+    this.totalTime = totalTime
+    this.notes = notes
   }
+
+  private static formatInstructionSteps = (steps: [{ text: string }]): string[] => {
+    return steps.reduce((newSteps: string[], step: { text: string }) => {
+      return newSteps.concat(decodeHTML(step.text))
+    }, [])
+  }
+
+  private static formatInstructions = (instructions: JSONldInstructions[]) => {
+    const formattedInstructions: (HowToSection | string)[] = []
+    instructions.forEach((step) => {
+      // or if has property name
+      if (step['@type'] === 'HowToSection') {
+        const formattedSection: HowToSection = {
+          name: step.name,
+          steps: this.formatInstructionSteps(step.itemListElement),
+        }
+        formattedInstructions.push(formattedSection)
+      } else {
+        formattedInstructions.push(decodeHTML(step.text))
+      }
+    })
+    return formattedInstructions
+  }
+
+  private static formatNutrition = (nutrition: Partial<JSONldNutrition>): Partial<INutrition> => {
+    return {
+      calories: nutrition?.calories,
+      carbohydrates: nutrition?.carbohydrateContent,
+      cholesterol: nutrition?.cholesterolContent,
+      fat: nutrition?.fatContent,
+      fiber: nutrition?.fiberContent,
+      protein: nutrition?.proteinContent,
+      saturatedFat: nutrition?.saturatedFatContent,
+      servingSize: nutrition?.servingSize,
+      sodium: nutrition?.sodiumContent,
+      sugar: nutrition?.sugarContent,
+      transFat: nutrition?.transFatContent,
+      unsaturatedFat: nutrition?.unsaturatedFatContent,
+    }
+  }
+
   static fromJSON = (json: unknown) => {
-    let recipe: Recipe
+    let recipe: IRecipe
     // json+ld appears to have 3? general formats
     //      1. Array of types (including recipe)
     //      2. Graph property with array of types (including recipe)
     //      3. Object with recipe top level
-    // TODO: handle #3 differently, no reason to iterate or convert to array
+    // TODO: error if certain recipe properties aren't found
+    // TODO: refactor to use a function to get the array
     const jsonArray = Array.isArray(json) ? json : json['@graph'] || [json]
     try {
       jsonArray.forEach(
         (
-          elem: Partial<Recipe> & {
+          elem: IRecipe & {
             recipeIngredient: [string]
-            recipeInstructions: [string]
+            recipeInstructions: [JSONldInstructions]
           }
         ) => {
           if (elem['@type'] == 'Recipe') {
             recipe = {
-              name: elem.name,
-              description: elem.description,
+              name: elem?.name,
+              description: elem?.description,
               ingredients: elem.recipeIngredient,
-              instructions: elem.recipeInstructions,
+              instructions: this.formatInstructions(elem.recipeInstructions),
               recipeYield: elem.recipeYield,
               prepTime: elem.prepTime,
               cookTime: elem.cookTime,
               totalTime: elem.totalTime,
-              nutrition: elem.nutrition,
+              nutrition: this.formatNutrition(elem.nutrition),
             }
           }
         }
@@ -65,7 +150,7 @@ class Recipe {
   }
 }
 
-const fetchDOMmodel = async (url) => {
+const fetchDOMmodel = async (url: string) => {
   try {
     const response = await fetch(url)
     const html = await response.text()
@@ -77,17 +162,17 @@ const fetchDOMmodel = async (url) => {
 
 export const getJsonLDfromURL = async (url: string) => {
   const $ = await fetchDOMmodel(url)
-  // There could be more than 1 ld+json scripts on the page, need the one with recipe
-  // TODO: handle multiple ld+jsons
-  let jsonld
+  const start = performance.now()
+  let jsonld: Cheerio<Element>
   try {
-    jsonld = $("script[type='application/ld+json']")
+    jsonld = $('script[type="application/ld+json"]')
     if (jsonld.length > 1) {
       // find the one with recipe
       jsonld.each((_, elm) => {
         const html = $(elm).html()
         if (html.includes('"@type":"Recipe"')) {
           jsonld = JSON.parse(html)
+          // short circuit if found
           return false
         }
       })
@@ -98,5 +183,7 @@ export const getJsonLDfromURL = async (url: string) => {
     throw `No ld+json on this page ${url}`
   }
   const recipe = Recipe.fromJSON(jsonld)
-  console.log(recipe)
+  const end = performance.now()
+  console.log(`time for brute force: ${start - end}`)
+  return recipe
 }
