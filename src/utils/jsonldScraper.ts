@@ -70,6 +70,15 @@ const formatNutrition = (nutrition: Partial<JSONldNutrition>): Partial<INutritio
   }
 }
 
+const getFormattedJSON = (json: unknown) => {
+  if (Array.isArray(json)) {
+    return json
+  } else if (json?.['@graph']) {
+    return json['@graph']
+  }
+  return [json]
+}
+
 const getRecipeFromJSONld = (json: unknown) => {
   let recipe: IRecipe
   // json+ld appears to have 3? general formats
@@ -78,7 +87,7 @@ const getRecipeFromJSONld = (json: unknown) => {
   //      3. Object with recipe top level
   // TODO: error if certain recipe properties aren't found
   // TODO: refactor to use a function to get the array
-  const jsonArray: JSONldRecipe[] = Array.isArray(json) ? json : json['@graph'] || [json]
+  const jsonArray: JSONldRecipe[] = getFormattedJSON(json)
   try {
     for (const elem of jsonArray) {
       if (elem['@type'] === 'Recipe') {
