@@ -1,5 +1,7 @@
 import { model, Schema } from 'mongoose'
 
+// TODO: Consider typegoose for less replication
+
 // custom tags might be nice
 export interface IRecipe {
   name: string
@@ -7,7 +9,7 @@ export interface IRecipe {
   description?: string
   image?: string
   video?: string
-  ingredients: [string]
+  ingredients: string[]
   instructions: (HowToSection | string)[]
   nutrition?: Partial<INutrition>
   recipeYield?: string

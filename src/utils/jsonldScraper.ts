@@ -25,128 +25,81 @@ type JSONldNutrition = {
   unsaturatedFatContent: string
 }
 
-class Recipe implements IRecipe {
-  name: string
-  description?: string
-  ingredients: [string]
-  instructions: (HowToSection | string)[]
-  nutrition?: unknown
-  url?: string
-  image?: string
-  video?: string
-  recipeYield?: string
-  prepTime?: string
-  cookTime?: string
-  totalTime?: string
-  notes?: string
+type JSONldRecipe = IRecipe & {
+  recipeIngredient: string[]
+  recipeInstructions: JSONldInstructions[]
+}
 
-  constructor({
-    name,
-    description,
-    image,
-    ingredients,
-    instructions,
-    nutrition,
-    recipeYield,
-    url,
-    video,
-    prepTime,
-    cookTime,
-    totalTime,
-    notes,
-  }: Recipe) {
-    this.name = name
-    this.description = description
-    this.image = image
-    this.ingredients = ingredients
-    this.instructions = instructions
-    this.nutrition = nutrition
-    this.recipeYield = recipeYield
-    this.url = url
-    this.video = video
-    this.prepTime = prepTime
-    this.cookTime = cookTime
-    this.totalTime = totalTime
-    this.notes = notes
-  }
+const formatInstructionSteps = (steps: [{ text: string }]): string[] => {
+  return steps.reduce((newSteps: string[], step: { text: string }) => {
+    return newSteps.concat(decodeHTML(step.text))
+  }, [])
+}
 
-  private static formatInstructionSteps = (steps: [{ text: string }]): string[] => {
-    return steps.reduce((newSteps: string[], step: { text: string }) => {
-      return newSteps.concat(decodeHTML(step.text))
-    }, [])
-  }
-
-  private static formatInstructions = (instructions: JSONldInstructions[]) => {
-    const formattedInstructions: (HowToSection | string)[] = []
-    instructions.forEach((step) => {
-      // or if has property name
-      if (step['@type'] === 'HowToSection') {
-        const formattedSection: HowToSection = {
-          name: step.name,
-          steps: this.formatInstructionSteps(step.itemListElement),
-        }
-        formattedInstructions.push(formattedSection)
-      } else {
-        formattedInstructions.push(decodeHTML(step.text))
+const formatInstructions = (instructions: JSONldInstructions[]) => {
+  const formattedInstructions: (HowToSection | string)[] = []
+  instructions.forEach((step) => {
+    // or if has property name
+    if (step['@type'] === 'HowToSection') {
+      const formattedSection: HowToSection = {
+        name: step.name,
+        steps: formatInstructionSteps(step.itemListElement),
       }
-    })
-    return formattedInstructions
-  }
-
-  private static formatNutrition = (nutrition: Partial<JSONldNutrition>): Partial<INutrition> => {
-    return {
-      calories: nutrition?.calories,
-      carbohydrates: nutrition?.carbohydrateContent,
-      cholesterol: nutrition?.cholesterolContent,
-      fat: nutrition?.fatContent,
-      fiber: nutrition?.fiberContent,
-      protein: nutrition?.proteinContent,
-      saturatedFat: nutrition?.saturatedFatContent,
-      servingSize: nutrition?.servingSize,
-      sodium: nutrition?.sodiumContent,
-      sugar: nutrition?.sugarContent,
-      transFat: nutrition?.transFatContent,
-      unsaturatedFat: nutrition?.unsaturatedFatContent,
+      formattedInstructions.push(formattedSection)
+    } else {
+      formattedInstructions.push(decodeHTML(step.text))
     }
-  }
+  })
+  return formattedInstructions
+}
 
-  static fromJSON = (json: unknown) => {
-    let recipe: IRecipe
-    // json+ld appears to have 3? general formats
-    //      1. Array of types (including recipe)
-    //      2. Graph property with array of types (including recipe)
-    //      3. Object with recipe top level
-    // TODO: error if certain recipe properties aren't found
-    // TODO: refactor to use a function to get the array
-    const jsonArray = Array.isArray(json) ? json : json['@graph'] || [json]
-    try {
-      jsonArray.forEach(
-        (
-          elem: IRecipe & {
-            recipeIngredient: [string]
-            recipeInstructions: [JSONldInstructions]
-          }
-        ) => {
-          if (elem['@type'] == 'Recipe') {
-            recipe = {
-              name: elem?.name,
-              description: elem?.description,
-              ingredients: elem.recipeIngredient,
-              instructions: this.formatInstructions(elem.recipeInstructions),
-              recipeYield: elem.recipeYield,
-              prepTime: elem.prepTime,
-              cookTime: elem.cookTime,
-              totalTime: elem.totalTime,
-              nutrition: this.formatNutrition(elem.nutrition),
-            }
-          }
+const formatNutrition = (nutrition: Partial<JSONldNutrition>): Partial<INutrition> => {
+  return {
+    calories: nutrition?.calories,
+    carbohydrates: nutrition?.carbohydrateContent,
+    cholesterol: nutrition?.cholesterolContent,
+    fat: nutrition?.fatContent,
+    fiber: nutrition?.fiberContent,
+    protein: nutrition?.proteinContent,
+    saturatedFat: nutrition?.saturatedFatContent,
+    servingSize: nutrition?.servingSize,
+    sodium: nutrition?.sodiumContent,
+    sugar: nutrition?.sugarContent,
+    transFat: nutrition?.transFatContent,
+    unsaturatedFat: nutrition?.unsaturatedFatContent,
+  }
+}
+
+const getRecipeFromJSONld = (json: unknown) => {
+  let recipe: IRecipe
+  // json+ld appears to have 3? general formats
+  //      1. Array of types (including recipe)
+  //      2. Graph property with array of types (including recipe)
+  //      3. Object with recipe top level
+  // TODO: error if certain recipe properties aren't found
+  // TODO: refactor to use a function to get the array
+  const jsonArray: JSONldRecipe[] = Array.isArray(json) ? json : json['@graph'] || [json]
+  try {
+    for (const elem of jsonArray) {
+      if (elem['@type'] === 'Recipe') {
+        recipe = {
+          name: elem?.name,
+          description: elem?.description,
+          ingredients: elem.recipeIngredient,
+          instructions: formatInstructions(elem.recipeInstructions),
+          recipeYield: elem.recipeYield,
+          prepTime: elem.prepTime,
+          cookTime: elem.cookTime,
+          totalTime: elem.totalTime,
+          nutrition: formatNutrition(elem.nutrition),
         }
-      )
-      return new Recipe(recipe)
-    } catch (error) {
-      console.error(error)
-      throw 'There was a problem parsing the JSON+ld object'
+        break
+      }
     }
+    return recipe
+  } catch (error) {
+    console.error(error)
+    throw 'There was a problem parsing the JSON+ld object'
   }
 }
 
@@ -160,7 +113,7 @@ const fetchDOMmodel = async (url: string) => {
   }
 }
 
-export const getJsonLDfromURL = async (url: string) => {
+export const getRecipeFromUrl = async (url: string) => {
   const $ = await fetchDOMmodel(url)
   const start = performance.now()
   let jsonld: Cheerio<Element>
@@ -182,7 +135,7 @@ export const getJsonLDfromURL = async (url: string) => {
   } catch (error) {
     throw `No ld+json on this page ${url}`
   }
-  const recipe = Recipe.fromJSON(jsonld)
+  const recipe = getRecipeFromJSONld(jsonld)
   const end = performance.now()
   console.log(`time for brute force: ${start - end}`)
   return recipe
