@@ -16,7 +16,8 @@
     "cors": "^2.8.5",
     "dotenv": "^14.3.2",
     "entities": "^3.0.1",
-    "express": "^4.17.2",
+    "fastify": "^3.27.0",
+    "fastify-plugin": "^3.0.1",
     "lodash": "^4.17.21",
     "mongoose": "^6.1.8",
     "node-fetch": "^2.6.7"
