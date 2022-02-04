@@ -1,25 +1,29 @@
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import Home from './Home';
+import Collections from './Collections';
+import Dashboard, { Main } from './Dashboard';
 
-function App() {
+const Login = () => <div>Login page</div>;
+const Favorites = () => <div>Favorites</div>;
+const Preferences = () => <div>Preferences</div>;
+
+const App = () => {
   return (
-    <div className='App'>
-      <header className='App-header'>
-        <img src={logo} className='App-logo' alt='logo' />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className='App-link'
-          href='https://reactjs.org'
-          target='_blank'
-          rel='noopener noreferrer'>
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path='/' element={<Dashboard />}>
+          <Route index element={<Main />} />
+          <Route path='collections' element={<Collections />} />
+          <Route path='/favorites' element={<Favorites />} />
+          <Route path='/preferences' element={<Preferences />} />
+        </Route>
+        <Route path='/login' element={<Login />} />
+      </Routes>
+    </BrowserRouter>
   );
-}
+};
 
 export default App;
