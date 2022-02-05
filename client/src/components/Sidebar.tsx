@@ -1,6 +1,4 @@
 import {
-  Box,
-  useColorModeValue,
   keyframes,
   VStack,
   Button,
@@ -9,8 +7,9 @@ import {
 } from '@chakra-ui/react';
 import {
   MdChevronLeft,
-  MdCollectionsBookmark,
   MdMenu,
+  MdOutlineCollectionsBookmark,
+  MdOutlineHome,
   MdOutlineSettings,
   MdStarOutline,
 } from 'react-icons/md';
@@ -59,29 +58,44 @@ const DesktopMenu = ({ children }: { children?: ReactNode } = {}) => {
       <Flex
         {...{
           h: '100vh',
-          backgroundColor: '#FFF',
+          backgroundColor: '#E9ECEF',
         }}>
         <VStack
           {...{
             position: 'sticky',
             top: 0,
             align: 'top',
+            spacing: 3,
           }}>
           <Button
             {...{
               ...sharedButtonProps,
               _focus: { boxShadow: 'none' },
               'aria-label': 'Item 1',
-              rightIcon: isOpen ? <MdChevronLeft /> : <MdMenu />,
+              rightIcon: isOpen ? (
+                <MdChevronLeft size={24} />
+              ) : (
+                <MdMenu size={24} />
+              ),
               onClick: () => setIsOpen(!isOpen),
             }}>
             Recipes
           </Button>
+          <Link to='/'>
+            <Button
+              {...{
+                ...sharedButtonProps,
+                rightIcon: <MdOutlineHome size={24} />,
+                'aria-label': 'Home',
+              }}>
+              Home
+            </Button>
+          </Link>
           <Link to='/collections'>
             <Button
               {...{
                 ...sharedButtonProps,
-                rightIcon: <MdCollectionsBookmark />,
+                rightIcon: <MdOutlineCollectionsBookmark size={24} />,
                 'aria-label': 'button 2',
               }}>
               Collections
@@ -92,7 +106,7 @@ const DesktopMenu = ({ children }: { children?: ReactNode } = {}) => {
               {...{
                 ...sharedButtonProps,
                 'aria-label': 'Item 2',
-                rightIcon: <MdStarOutline />,
+                rightIcon: <MdStarOutline size={24} />,
               }}>
               Favorites
             </Button>
@@ -102,7 +116,7 @@ const DesktopMenu = ({ children }: { children?: ReactNode } = {}) => {
               {...{
                 ...sharedButtonProps,
                 'aria-label': 'Item 2',
-                rightIcon: <MdOutlineSettings />,
+                rightIcon: <MdOutlineSettings size={24} />,
               }}>
               Options
             </Button>

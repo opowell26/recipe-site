@@ -11,11 +11,11 @@ export const Main = () => {
   );
 };
 
-const Dashboard = ({ children }: { children?: ReactNode } = {}) => {
+const Dashboard = () => {
   return (
     <div>
       <DesktopMenu>
-        <Box minH='100vh' flex={1}>
+        <Box minH='100vh' bg='white' p={6} flex={1}>
           <Outlet />
         </Box>
       </DesktopMenu>
